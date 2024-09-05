@@ -1,7 +1,7 @@
 import { FastifyPluginAsync, FastifyRequest } from 'fastify'
 
 interface ITaskParams {
-  id: number
+  id?: number
 }
 
 type TaskRequest = FastifyRequest<{
@@ -23,10 +23,10 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
 
   fastify.addHook('onRequest', async (request: TaskRequest, reply) => {
     const { id } = request.params
-    if (!id) return
+    if (id === undefined) return
 
-    task = findTask(request.params.id)
-    if (task == null) reply.code(404).send({ message: 'Task not found' })
+    task = findTask(id)
+    if (task == null) await reply.code(404).send({ message: 'Task not found' })
   })
 
   const findTask = (id: number): { id: number, title: string, done: boolean } | null => {
@@ -50,7 +50,7 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   fastify.post<{ Body: ITaskCreateBody }>('/tasks', async function (request, reply) {
     const { title } = request.body
 
-    reply.code(201).send({ id: 5, title, done: false })
+    await reply.code(201).send({ id: 5, title, done: false })
   })
 
   fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request, reply) {
@@ -58,7 +58,7 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   })
 
   fastify.delete<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
-    reply.code(204).send()
+    await reply.code(204).send()
   })
 }
 

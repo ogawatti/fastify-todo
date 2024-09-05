@@ -3,8 +3,8 @@ import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload'
 import { FastifyPluginAsync } from 'fastify'
 import { fileURLToPath } from 'url'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const _filename = fileURLToPath(import.meta.url)
+const _dirname = path.dirname(_filename)
 
 export type AppOptions = {
   // Place your custom options for app below here.
@@ -26,7 +26,7 @@ const app: FastifyPluginAsync<AppOptions> = async (
   // those should be support plugins that are reused
   // through your application
   void fastify.register(AutoLoad, {
-    dir: path.join(__dirname, 'plugins'),
+    dir: path.join(_dirname, 'plugins'),
     options: opts,
     forceESM: true
   })
@@ -34,7 +34,7 @@ const app: FastifyPluginAsync<AppOptions> = async (
   // This loads all plugins defined in routes
   // define your routes in one of these
   void fastify.register(AutoLoad, {
-    dir: path.join(__dirname, 'routes'),
+    dir: path.join(_dirname, 'routes'),
     options: opts,
     forceESM: true
   })

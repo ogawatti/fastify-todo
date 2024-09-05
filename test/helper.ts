@@ -4,22 +4,22 @@ import * as test from 'node:test'
 import * as path from 'path'
 import { fileURLToPath } from 'url'
 
-export type TestContext = {
+export interface TestContext {
   after: typeof test.after
-};
+}
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const AppPath = path.join(__dirname, '..', 'src', 'app.ts')
+const _filename = fileURLToPath(import.meta.url)
+const _dirname = path.dirname(_filename)
+const AppPath = path.join(_dirname, '..', 'src', 'app.ts')
 
 // Fill in this config with all the configurations
 // needed for testing the application
-async function config () {
+async function config (): Promise<Record<string, unknown>> {
   return {}
 }
 
 // Automatically build and tear down our instance
-async function build (t: TestContext) {
+async function build (t: TestContext): Promise<void> {
   // you can set all the options supported by the fastify CLI command
   const argv = [AppPath]
 
@@ -29,7 +29,7 @@ async function build (t: TestContext) {
   const app = await helper.build(argv, await config())
 
   // Tear down our app after we are done
-  t.after(() => void app.close())
+  t.after(() => app.close())
 
   return app
 }

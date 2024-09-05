@@ -2,10 +2,10 @@ import { test } from 'node:test'
 import * as assert from 'node:assert'
 import { build } from '../helper.js'
 
-test('default root route', async (t) => {
+void test('default root route', async (t) => {
   const app = await build(t)
 
-  const res = await app.inject({
+  const res = await (app as any).inject({
     url: '/'
   })
   assert.deepStrictEqual(JSON.parse(res.payload), { root: true })
