@@ -1,7 +1,15 @@
 import { FastifyPluginAsync } from 'fastify'
 
+interface ITaskParams {
+  id: string
+}
+
 interface ITaskCreateBody {
   title: string
+}
+
+interface ITaskUpdateBody extends ITaskCreateBody {
+  done: boolean
 }
 
 const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
@@ -18,6 +26,17 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
     const { title } = request.body
 
     reply.code(201).send({ id: 5, title, done: false })
+  })
+
+  fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request, reply) {
+    const id = request.params.id
+    const { title, done } = request.body
+
+    return {
+      id,
+      title: title || 'Task 5',
+      done: done || false
+    }
   })
 }
 
