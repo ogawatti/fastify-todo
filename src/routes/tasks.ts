@@ -38,6 +38,13 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
       done: done || false
     }
   })
+
+  fastify.delete<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
+    const id = request.params.id
+    console.log(`Deleting task ${id}`)
+
+    reply.code(204).send()
+  })
 }
 
 export default tasks
