@@ -1,8 +1,12 @@
-import { FastifyPluginAsync } from 'fastify'
+import { FastifyPluginAsync, FastifyRequest } from 'fastify'
 
 interface ITaskParams {
-  id: string
+  id: number
 }
+
+type TaskRequest = FastifyRequest<{
+  Params: ITaskParams
+}>
 
 interface ITaskCreateBody {
   title: string
@@ -12,7 +16,24 @@ interface ITaskUpdateBody extends ITaskCreateBody {
   done: boolean
 }
 
+type Task = { id: number, title: string, done: boolean } | null
+
 const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
+  let task: Task
+
+  fastify.addHook('onRequest', async (request: TaskRequest, reply) => {
+    const { id } = request.params
+    if (!id) return
+
+    task = findTask(request.params.id)
+    if (task == null) reply.code(404).send({ message: 'Task not found' })
+  })
+
+  const findTask = (id: number): { id: number, title: string, done: boolean } | null => {
+    return (id <= 0 || id >= 10) ? null : { id, title: `Task ${id}`, done: false }
+  }
+
+  // API Endpoints
   fastify.get('/tasks', async function (request, reply) {
     return [
       { id: 1, title: 'Task 1', done: false },
@@ -22,6 +43,10 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
     ]
   })
 
+  fastify.get<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
+    return task
+  })
+
   fastify.post<{ Body: ITaskCreateBody }>('/tasks', async function (request, reply) {
     const { title } = request.body
 
@@ -29,20 +54,10 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   })
 
   fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request, reply) {
-    const id = request.params.id
-    const { title, done } = request.body
-
-    return {
-      id,
-      title: title || 'Task 5',
-      done: done || false
-    }
+    return { ...task, ...request.body }
   })
 
   fastify.delete<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
-    const id = request.params.id
-    console.log(`Deleting task ${id}`)
-
     reply.code(204).send()
   })
 }
