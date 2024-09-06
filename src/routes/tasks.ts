@@ -1,7 +1,17 @@
 import { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import prisma from '../lib/prisma.js'
+import { Prisma } from '@prisma/client'
 
 interface ITaskParams {
-  id?: number
+  id: string
+}
+
+interface ITaskCreateBody {
+  title: string
+}
+
+interface ITaskUpdateBody extends ITaskCreateBody {
+  done?: boolean
 }
 
 type TaskRequest = FastifyRequest<{
@@ -9,72 +19,39 @@ type TaskRequest = FastifyRequest<{
   Body: ITaskCreateBody | ITaskUpdateBody
 }>
 
-interface ITaskCreateBody {
-  title?: string
-}
-
-interface ITaskUpdateBody extends ITaskCreateBody {
-  done?: boolean
-}
-
-export interface Task { id: number, title: string, done: boolean }
-
 const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
-  let task: Task | null
-  const tasks: Task[] = [
-    { id: 1, title: 'Task 1', done: false },
-    { id: 2, title: 'Task 2', done: false },
-    { id: 3, title: 'Task 3', done: false },
-    { id: 4, title: 'Task 4', done: true }
-  ]
-
   fastify.addHook('onRequest', async (request: TaskRequest, reply) => {
-    const id = request.params.id
-    if (id === undefined) return
+    if (request.raw.url?.match(/^\/tasks\/+\d/)) {
+      const id = +request.params.id
+      const task = await prisma.task.findUnique({ where: { id } })
 
-    task = findTask(+id)
-    if (task === null) await reply.code(404).send({ message: 'Task not found' })
-  })
-
-  const findTask = (id: number): Task | null => {
-    return tasks.find(task => task.id === id) ?? null
-  }
-
-  fastify.addHook('preValidation', async (request: TaskRequest, reply) => {
-    const id = request.params.id
-    const title = request.body?.title
-
-    if (id === undefined && task === null) {
-      if (title === '' || title === undefined) {
-        await reply.code(400).send({ message: 'Task title does not allow empty' })
-      }
-    } else {
-      if (title === '') {
-        await reply.code(400).send({ message: 'Task title does not allow empty' })
+      if (task === null) {
+        await reply.code(404).send({ message: 'Task not found' })
       }
     }
   })
 
-  // API Endpoints
-  fastify.get('/tasks', async function (request, reply) {
-    return tasks
-  })
-
-  fastify.get<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
-    return task
+  fastify.get('/tasks', async function (request: TaskRequest, reply): Promise<Array<Prisma.TaskGetPayload<{}>>> {
+    return await prisma.task.findMany({ where: { done: false } })
   })
 
   fastify.post<{ Body: ITaskCreateBody }>('/tasks', async function (request, reply) {
-    const { title } = request.body
+    const task = await prisma.task.create({ data: { title: request.body.title } })
 
-    await reply.code(201).send({ id: 5, title, done: false })
+    await reply.code(201).send(task)
+  })
+
+  fastify.get<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
+    return await prisma.task.findUnique({ where: { id: +request.params.id } })
   })
 
   fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request, reply) {
-    return { ...task, ...request.body }
+    return await prisma.task.update({ where: { id: +request.params.id }, data: request.body })
   })
 
   fastify.delete<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
+    await prisma.task.delete({ where: { id: +request.params.id } })
+
     await reply.code(204).send()
   })
 }

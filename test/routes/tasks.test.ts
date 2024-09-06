@@ -1,7 +1,7 @@
 import { describe, test } from 'node:test'
 import * as assert from 'node:assert'
 import { build } from '../helper.js'
-import { Task } from '../../src/routes/tasks.js'
+import { Task } from '@prisma/client'
 
 void describe('tasks route', async (s) => {
   void describe('GET /tasks', () => {
