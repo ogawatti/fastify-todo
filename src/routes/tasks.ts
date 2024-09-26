@@ -21,7 +21,7 @@ type TaskRequest = FastifyRequest<{
 
 const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
   fastify.addHook('onRequest', async (request: TaskRequest, reply) => {
-    if (request.raw.url?.match(/^\/tasks\/+\d/)) {
+    if ((request.raw.url?.match(/^\/tasks\/+\d/)) != null) {
       const id = +request.params.id
       const task = await prisma.task.findUnique({ where: { id } })
 
