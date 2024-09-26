@@ -1,10 +1,8 @@
 import * as path from 'path'
 import AutoLoad, { AutoloadPluginOptions } from '@fastify/autoload'
 import { FastifyPluginAsync } from 'fastify'
-import { fileURLToPath } from 'url'
 
-const _filename = fileURLToPath(import.meta.url)
-const _dirname = path.dirname(_filename)
+const _dirname = __dirname
 
 export type AppOptions = {} & Partial<AutoloadPluginOptions>
 

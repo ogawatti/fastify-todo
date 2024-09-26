@@ -19,7 +19,7 @@ type TaskRequest = FastifyRequest<{
   Body: ITaskCreateBody | ITaskUpdateBody
 }>
 
-const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
+const tasks: FastifyPluginAsync = async (fastify): Promise<void> => {
   fastify.addHook('onRequest', async (request: TaskRequest, reply) => {
     if ((request.raw.url?.match(/^\/tasks\/+\d/)) != null) {
       const id = +request.params.id
@@ -31,7 +31,7 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
     }
   })
 
-  fastify.get('/tasks', async function (request: TaskRequest, reply): Promise<Array<Prisma.TaskGetPayload<{}>>> {
+  fastify.get('/tasks', async function (): Promise<Array<Prisma.TaskGetPayload<object>>> {
     return await prisma.task.findMany({ where: { done: false } })
   })
 
@@ -41,11 +41,11 @@ const tasks: FastifyPluginAsync = async (fastify, opts): Promise<void> => {
     await reply.code(201).send(task)
   })
 
-  fastify.get<{ Params: ITaskParams }>('/tasks/:id', async function (request, reply) {
+  fastify.get<{ Params: ITaskParams }>('/tasks/:id', async function (request) {
     return await prisma.task.findUnique({ where: { id: +request.params.id } })
   })
 
-  fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request, reply) {
+  fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request) {
     return await prisma.task.update({ where: { id: +request.params.id }, data: request.body })
   })
 
