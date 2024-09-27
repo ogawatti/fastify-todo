@@ -1,166 +1,183 @@
-import { describe, test } from 'node:test'
-import * as assert from 'node:assert'
-import { build } from '../helper.js'
-import { Task } from '@prisma/client'
+import { Task } from "@prisma/client";
+import { build } from "../helper";
+import prisma from "../../src/lib/prisma";
+import { IErrorResponse } from "../../src/routes/tasks";
 
-void describe('tasks route', async (s) => {
-  void describe('GET /tasks', () => {
-    void test('returns 200 ok', async (t) => {
-      const app = await build(t)
+describe('Task API', () => {
+  const app = build();
 
-      const res = await (app as any).inject({ method: 'GET', url: '/tasks' })
-      assert.strictEqual(res.statusCode, 200)
+  afterEach(async () => {
+    await prisma.task.deleteMany();
+  });
 
-      const tasks = JSON.parse(res.payload)
-      assert.strictEqual(tasks.length, 4)
-      tasks.forEach((task: Task) => {
-        assert.strictEqual(typeof task.id, 'number')
-        assert.strictEqual(typeof task.title, 'string')
-        assert.strictEqual(typeof task.done, 'boolean')
-      })
-    })
-  })
+  describe('GET /tasks', () => {
+    const url = '/tasks';
 
-  void describe('GET /tasks/:id', () => {
-    void describe('when specified task exists', () => {
-      const id = 1
-
-      void test('returns 200 ok', async (t) => {
-        const app = await build(t)
-
-        const res = await (app as any).inject({ method: 'GET', url: `/tasks/${id}` })
-        assert.strictEqual(res.statusCode, 200)
-
-        const task = JSON.parse(res.payload)
-        console.log(task)
-        assert.strictEqual(task.id, 1)
-        assert.strictEqual(task.title, 'Task 1')
-        assert.strictEqual(task.done, false)
-      })
-    })
-
-    void describe('when specified task does not exist', () => {
-      const id = 10
-
-      void test('returns 404 not found', async (t) => {
-        const app = await build(t)
-
-        const res = await (app as any).inject({ method: 'GET', url: `/tasks/${id}` })
-        assert.strictEqual(res.statusCode, 404)
-
-        const error = JSON.parse(res.payload)
-        assert.strictEqual(error.message, 'Task not found')
-      })
-    })
-  })
-
-  void describe('POST /tasks', () => {
-    void describe('when specified title is not valid', () => {
-      const title = ''
-
-      void test('returns 400 bad request', async (t) => {
-        const app = await build(t)
-
-        const res = await (app as any).inject({ method: 'POST', url: '/tasks', payload: { title } })
-        assert.strictEqual(res.statusCode, 400)
-
-        const error = JSON.parse(res.payload)
-        assert.strictEqual(error.message, 'Task title does not allow empty')
-      })
-    })
-
-    void describe('when specified title is valid', () => {
-      const title = 'New Task'
-
-      void test('returns 201 created', async (t) => {
-        const app = await build(t)
-
-        const res = await (app as any).inject({ method: 'POST', url: '/tasks', payload: { title } })
-        assert.strictEqual(res.statusCode, 201)
-
-        const task = JSON.parse(res.payload)
-        assert.strictEqual(typeof task.id, 'number')
-        assert.strictEqual(task.title, title)
-        assert.strictEqual(task.done, false)
-      })
-    })
-  })
-
-  void describe('PUT /tasks/:id', () => {
-    void describe('when specified task does not exist', () => {
-      const id = 10
-
-      void test('returns 404 not found', async (t) => {
-        const app = await build(t)
-
-        const res = await (app as any).inject({ method: 'PUT', url: `/tasks/${id}` })
-        assert.strictEqual(res.statusCode, 404)
-
-        const error = JSON.parse(res.payload)
-        assert.strictEqual(error.message, 'Task not found')
-      })
-    })
-
-    void describe('when specified task exists', () => {
-      const id = 1
-
-      void describe('and specified title is not valid', () => {
-        const title = ''
-
-        void test('returns 400 bad request', async (t) => {
-          const app = await build(t)
-
-          const res = await (app as any).inject({ method: 'PUT', url: `/tasks/${id}`, payload: { title } })
-          assert.strictEqual(res.statusCode, 400)
-
-          const error = JSON.parse(res.payload)
-          assert.strictEqual(error.message, 'Task title does not allow empty')
+    beforeEach(async () => {
+      await Promise.all(
+        [...Array(3)].map(async (_, i) => {
+          return await prisma.task.create({ data: { title: `test ${i + 1}` } });
         })
-      })
+      );
+    });
 
-      void describe('and specified title is valid', () => {
-        const title = 'New Task'
+    it('returns 200 ok', async () => {
+      const res = await app.inject({ url });
 
-        void test('returns 200 ok', async (t) => {
-          const app = await build(t)
+      expect(res.statusCode).toEqual(200);
 
-          const res = await (app as any).inject({ method: 'PUT', url: `/tasks/${id}`, payload: { title } })
-          assert.strictEqual(res.statusCode, 200)
+      const body = res.json() as Task[];
+      body.forEach(({ id, title, done }) => {
+        expect(typeof id).toBe('number')
+        expect(typeof title).toBe('string');
+        expect(done).toBe(false);
+      });
+    });
+  });
 
-          const task = JSON.parse(res.payload)
-          assert.strictEqual(task.id, id)
-          assert.strictEqual(task.title, title)
-          assert.strictEqual(task.done, false)
-        })
-      })
-    })
-  })
+  describe('GET /tasks/:id', () => {
+    describe('when specified task exists', () => {
+      let task: Task;
 
-  void describe('DELETE /tasks/:id', () => {
-    void describe('when specified task does not exist', () => {
-      const id = 10
+      beforeEach(async () => {
+        task = await prisma.task.create({ data: { title: 'test' } });
+      });
 
-      void test('returns 404 not found', async (t) => {
-        const app = await build(t)
+      it('returns 200 ok', async () => {
+        const res = await app.inject({ url: `/tasks/${task.id}` });
 
-        const res = await (app as any).inject({ method: 'DELETE', url: `/tasks/${id}` })
-        assert.strictEqual(res.statusCode, 404)
+        expect(res.statusCode).toEqual(200);
 
-        const error = JSON.parse(res.payload)
-        assert.strictEqual(error.message, 'Task not found')
-      })
-    })
+        const body = res.json() as Task;
+        expect(body.id).toBe(task.id);
+        expect(body.title).toBe(task.title);
+        expect(body.done).toBe(task.done);
+      });
+    });
 
-    void describe('when specified task exists', () => {
-      const id = 1
+    describe('when specified task does not exist', () => {
+      it('returns 404 not found', async () => {
+        const res = await app.inject({ url: '/tasks/0' });
 
-      void test('returns 204 no content', async (t) => {
-        const app = await build(t)
+        expect(res.statusCode).toEqual(404);
 
-        const res = await (app as any).inject({ method: 'DELETE', url: `/tasks/${id}` })
-        assert.strictEqual(res.statusCode, 204)
-        assert.equal(res.payload, '')
-      })
-    })
-  })
-})
+        const error = res.json() as IErrorResponse;
+        expect(error.message).toBe('Task not found');
+      });
+    });
+  });
+
+  describe('POST /tasks', () => {
+    const method = 'POST';
+    const url = '/tasks';
+
+    describe('when specified title is valid', () => {
+      const title = 'test';
+
+      it('returns 201 created', async () => {
+        const res = await app.inject({ method, url, payload: { title } });
+
+        expect(res.statusCode).toEqual(201);
+
+        const body = res.json() as Task;
+        expect(typeof body.id).toBe('number')
+        expect(body.title).toBe('test');
+        expect(body.done).toBe(false);
+      });
+    });
+
+    describe('when specified title is not valid', () => {
+      const title = '';
+
+      it('returns 400 bad request', async () => {
+        const res = await app.inject({ method, url, payload: { title } });
+
+        expect(res.statusCode).toEqual(400);
+
+        const error = res.json() as IErrorResponse;
+        expect(error.message).toBe('Title is required');
+      });
+    });
+  });
+
+  describe('PUT /tasks/:id', () => {
+    const method = 'PUT';
+
+    describe('when specified task exists', () => {
+      let task: Task;
+      let url: string;
+
+      beforeEach(async () => {
+        task = await prisma.task.create({ data: { title: 'test' } });
+        url = `/tasks/${task.id}`;
+      });
+
+      describe('and specified title is valid', () => {
+        const title = 'updated';
+
+        it('returns 200 ok', async () => {
+          const res = await app.inject({ method, url, payload: { title } });
+
+          expect(res.statusCode).toEqual(200);
+
+          const body = res.json() as Task;
+          expect(body.id).toBe(task.id);
+          expect(body.title).toBe('updated');
+          expect(body.done).toBe(task.done);
+        });
+      });
+
+      describe('and specified title is not valid', () => {
+        const title = '';
+
+        it('returns 400 bad request', async () => {
+          const res = await app.inject({ method, url, payload: { title } });
+
+          expect(res.statusCode).toEqual(400);
+
+          const error = res.json() as IErrorResponse;
+          expect(error.message).toBe('Title is required');
+        });
+      });
+    });
+
+    describe('when specified task does not exist', () => {
+      it('returns 404 not found', async () => {
+        const res = await app.inject({ method, url: '/tasks/0' });
+
+        expect(res.statusCode).toEqual(404);
+
+        const error = res.json() as IErrorResponse;
+        expect(error.message).toBe('Task not found');
+      });
+    });
+  });
+
+  describe('DELETE /tasks/:id', () => {
+    describe('when specified task exists', () => {
+      let task: Task;
+
+      beforeEach(async () => {
+        task = await prisma.task.create({ data: { title: 'test' } });
+      });
+
+      it('returns 204 no content', async () => {
+        const res = await app.inject({ method: 'DELETE', url: `/tasks/${task.id}` });
+
+        expect(res.statusCode).toEqual(204);
+        expect(res.payload).toBe('');
+      });
+    });
+
+    describe('when specified task does not exist', () => {
+      it('returns 404 not found', async () => {
+        const res = await app.inject({ method: 'DELETE', url: '/tasks/0' });
+
+        expect(res.statusCode).toEqual(404);
+
+        const error = res.json() as IErrorResponse;
+        expect(error.message).toBe('Task not found');
+      });
+    });
+  });
+});

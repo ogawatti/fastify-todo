@@ -1,5 +1,5 @@
 import { FastifyPluginAsync, FastifyRequest } from 'fastify'
-import prisma from '../lib/prisma.js'
+import prisma from '../lib/prisma'
 import { Prisma } from '@prisma/client'
 
 interface ITaskParams {
@@ -14,6 +14,13 @@ interface ITaskUpdateBody extends ITaskCreateBody {
   done?: boolean
 }
 
+export interface IErrorResponse {
+  message: string;
+}
+
+const taskNotFound: IErrorResponse = { message: 'Task not found' };
+const taskTitleIsRequired: IErrorResponse = { message: 'Title is required' };
+
 type TaskRequest = FastifyRequest<{
   Params: ITaskParams
   Body: ITaskCreateBody | ITaskUpdateBody
@@ -26,7 +33,7 @@ const tasks: FastifyPluginAsync = async (fastify): Promise<void> => {
       const task = await prisma.task.findUnique({ where: { id } })
 
       if (task === null) {
-        await reply.code(404).send({ message: 'Task not found' })
+        await reply.code(404).send(taskNotFound)
       }
     }
   })
@@ -35,17 +42,22 @@ const tasks: FastifyPluginAsync = async (fastify): Promise<void> => {
     return await prisma.task.findMany({ where: { done: false } })
   })
 
-  fastify.post<{ Body: ITaskCreateBody }>('/tasks', async function (request, reply) {
-    const task = await prisma.task.create({ data: { title: request.body.title } })
-
-    await reply.code(201).send(task)
-  })
-
   fastify.get<{ Params: ITaskParams }>('/tasks/:id', async function (request) {
     return await prisma.task.findUnique({ where: { id: +request.params.id } })
   })
 
-  fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request) {
+  fastify.post<{ Body: ITaskCreateBody }>('/tasks', async function (request, reply) {
+    const title = request.body.title;
+    if (!title) return reply.code(400).send(taskTitleIsRequired);
+
+    const task = await prisma.task.create({ data: { title } })
+    await reply.code(201).send(task)
+  })
+
+  fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request, reply) {
+    const title = request.body.title;
+    if (!title) return reply.code(400).send(taskTitleIsRequired);
+
     return await prisma.task.update({ where: { id: +request.params.id }, data: request.body })
   })
 
