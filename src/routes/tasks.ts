@@ -28,13 +28,20 @@ type TaskRequest = FastifyRequest<{
 
 const tasks: FastifyPluginAsync = async (fastify): Promise<void> => {
   fastify.addHook('onRequest', async (request: TaskRequest, reply) => {
-    if ((request.raw.url?.match(/^\/tasks\/+\d/)) != null) {
+    if ((request.raw.url?.match(/^\/tasks\/+\d/))) {
       const id = +request.params.id
       const task = await prisma.task.findUnique({ where: { id } })
 
-      if (task === null) {
-        await reply.code(404).send(taskNotFound)
-      }
+      if (!task) return reply.code(404).send(taskNotFound)
+    }
+  });
+
+  fastify.addHook('preValidation', async (request: TaskRequest, reply) => {
+    if (
+      (request.raw.url?.match(/^\/tasks/)) && request.method === 'POST' && request.body?.title === '' ||
+      (request.raw.url?.match(/^\/tasks\/+\d/)) && request.method === 'PUT' && request.body?.title === ''
+    ) {
+      return reply.code(400).send(taskTitleIsRequired)
     }
   })
 
@@ -48,16 +55,11 @@ const tasks: FastifyPluginAsync = async (fastify): Promise<void> => {
 
   fastify.post<{ Body: ITaskCreateBody }>('/tasks', async function (request, reply) {
     const title = request.body.title;
-    if (!title) return reply.code(400).send(taskTitleIsRequired);
-
     const task = await prisma.task.create({ data: { title } })
     await reply.code(201).send(task)
   })
 
-  fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request, reply) {
-    const title = request.body.title;
-    if (!title) return reply.code(400).send(taskTitleIsRequired);
-
+  fastify.put<{ Params: ITaskParams, Body: ITaskUpdateBody }>('/tasks/:id', async function (request) {
     return await prisma.task.update({ where: { id: +request.params.id }, data: request.body })
   })
 
